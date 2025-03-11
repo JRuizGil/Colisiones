@@ -9,6 +9,13 @@ public static class CollisionFunctions
                point.x <= boxPos.x + boxSize.x / 2 &&
                point.y >= boxPos.y - boxSize.y / 2 &&
                point.y <= boxPos.y + boxSize.y / 2;
+        //if (boxPos.x + boxSize.x / 2 >= point.x && point.x >= boxPos.x + boxSize.x / 2)
+        //{
+        //    if(boxPos.y + boxSize.y / 2 >= point.y && point.y >= boxPos.y + boxSize.y / 2)
+        //    {
+        //        return true;
+        //    }
+        //}
     }
     //  Punto vs Círculo
     public static bool PointToCircle(Vector2 point, Vector2 circlePos, float radius)

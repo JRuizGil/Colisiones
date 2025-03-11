@@ -41,13 +41,9 @@ public class CustomCollider : MonoBehaviour
         {
             transform.position = mousePos;
 
-            // Rotación mientras está seleccionado (solo para OBB)
-            if (colliderType == ColliderType.OBB)
-            {
-                if (Input.GetKey(KeyCode.Q)) angle += 1f;
-                if (Input.GetKey(KeyCode.E)) angle -= 1f;
-                transform.rotation = Quaternion.Euler(0, 0, angle);
-            }
+            if (Input.GetKey(KeyCode.Q)) angle += 1f;
+            if (Input.GetKey(KeyCode.E)) angle -= 1f;
+            transform.rotation = Quaternion.Euler(0, 0, angle);            
         }
 
         if (Input.GetMouseButtonUp(0))
