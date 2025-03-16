@@ -1,77 +1,74 @@
 using UnityEngine;
-
+//clase que tienen los objetos para detectar las colisiones con el click y poder rotarlos
 public class CustomCollider : MonoBehaviour
 {
     public enum ColliderType { AABB, Circle, OBB }
     public ColliderType colliderType;
-
-    private Vector2 size;
-    private float radius;
-    private float angle = 0f;
     private bool isDragging = false;
-    private SpriteRenderer spriteRenderer;
-
-    public Vector2 Size => size;
-    public float Radius => radius;
-    public bool IsDragging => isDragging;
+    private Vector2 offset;
 
     void Start()
     {
-        spriteRenderer = GetComponent<SpriteRenderer>();
-        if (colliderType == ColliderType.Circle)
-            radius = transform.localScale.x / 2f;
-        else
-            size = transform.localScale;
-
-        // Registrar en el CollisionManager al iniciar
-        CollisionManager.Instance?.Register(this);
+        CollisionManager.Instance.RegisterCollider(this);
     }
-
     void Update()
+    {        
+        HandleClick();        
+    }
+    //función para manejar la colision del click con los objetos de la escena.
+    void HandleClick()
     {
         Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-
-        if (Input.GetMouseButtonDown(0) && IsMouseOver(mousePos))
+        //el punto es el raton.
+        if (Input.GetMouseButtonDown(0))
         {
-            isDragging = true;
-            SetColor(Color.yellow);
+            if (colliderType == ColliderType.AABB)
+            {
+                Vector2 min = (Vector2)transform.position - (Vector2)transform.localScale / 2;
+                Vector2 max = (Vector2)transform.position + (Vector2)transform.localScale / 2;
+                if (CollisionFunctions.PointToAABB(mousePos, min, max))
+                {
+                    isDragging = true;
+                    offset = (Vector2)transform.position - mousePos;
+                }
+            }
+            else if (colliderType == ColliderType.Circle)
+            {
+                float radius = transform.localScale.x / 2;
+                if (CollisionFunctions.PointToCircle(mousePos, transform.position, radius))
+                {
+                    isDragging = true;
+                    offset = (Vector2)transform.position - mousePos;
+                }
+            }
+            else if (colliderType == ColliderType.OBB)
+            {
+                if (CollisionFunctions.PointToOBB(mousePos, transform))
+                {
+                    isDragging = true;
+                    offset = (Vector2)transform.position - mousePos;
+                }
+            }
         }
-
+        //evita el centrado automatico cuando se clicka en el objeto.
         if (isDragging)
         {
-            transform.position = mousePos;
-
-            if (Input.GetKey(KeyCode.Q)) angle += 1f;
-            if (Input.GetKey(KeyCode.E)) angle -= 1f;
-            transform.rotation = Quaternion.Euler(0, 0, angle);            
+            transform.position = mousePos + offset;
         }
-
         if (Input.GetMouseButtonUp(0))
         {
             isDragging = false;
-            SetColor(Color.white);
         }
-    }
-
-    public void SetColor(Color color)
-    {
-        if (spriteRenderer != null)
-            spriteRenderer.color = color;
-    }
-
-    private bool IsMouseOver(Vector2 mousePos)
-    {
-        Vector2 position = transform.position;
-        switch (colliderType)
+        //rotacion de objetos mientas se mantiene el click
+        if (isDragging && (Input.GetKey(KeyCode.Q) || Input.GetKey(KeyCode.E)))
         {
-            case ColliderType.AABB:
-                return CollisionFunctions.PointToAABB(mousePos, position, size);
-            case ColliderType.Circle:
-                return CollisionFunctions.PointToCircle(mousePos, position, radius);
-            case ColliderType.OBB:
-                return CollisionFunctions.PointToOBB(mousePos, position, size, angle);
-            default:
-                return false;
+            float rotationSpeed = 100f;
+            float rotation = Input.GetKey(KeyCode.Q) ? rotationSpeed : -rotationSpeed;
+            transform.Rotate(Vector3.forward, rotation * Time.deltaTime);
+            if (colliderType == ColliderType.AABB)
+            {
+                colliderType = ColliderType.OBB;
+            }
         }
     }
 }

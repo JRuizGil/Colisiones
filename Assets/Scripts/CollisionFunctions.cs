@@ -1,68 +1,85 @@
 using UnityEngine;
-
-public static class CollisionFunctions
+using System.Collections.Generic;
+// esta clase contiene las funciones con las formulas de colisones con todas las combinaciones posibles.
+public class CollisionFunctions : MonoBehaviour
 {
-    //  Punto vs AABB
-    public static bool PointToAABB(Vector2 point, Vector2 boxPos, Vector2 boxSize)
+    public static bool PointToAABB(Vector2 point, Vector2 min, Vector2 max)
     {
-        return point.x >= boxPos.x - boxSize.x / 2 &&
-               point.x <= boxPos.x + boxSize.x / 2 &&
-               point.y >= boxPos.y - boxSize.y / 2 &&
-               point.y <= boxPos.y + boxSize.y / 2;
-        //if (boxPos.x + boxSize.x / 2 >= point.x && point.x >= boxPos.x + boxSize.x / 2)
-        //{
-        //    if(boxPos.y + boxSize.y / 2 >= point.y && point.y >= boxPos.y + boxSize.y / 2)
-        //    {
-        //        return true;
-        //    }
-        //}
+        return (point.x >= min.x && point.x <= max.x &&
+                point.y >= min.y && point.y <= max.y);
     }
-    //  Punto vs Círculo
-    public static bool PointToCircle(Vector2 point, Vector2 circlePos, float radius)
+    public static bool PointToCircle(Vector2 point, Vector2 center, float radius)
     {
-        return (point - circlePos).sqrMagnitude <= radius * radius;
+        return (point - center).sqrMagnitude <= radius * radius;
     }
+    public static bool PointToOBB(Vector2 point, Transform boxTransform)
+    {
+        Vector2 localPoint = boxTransform.InverseTransformPoint(point);
+        Vector2 halfSize = boxTransform.localScale / 2;
+        return Mathf.Abs(localPoint.x) <= halfSize.x && Mathf.Abs(localPoint.y) <= halfSize.y;
+    }
+    public static bool AABBToAABB(Vector2 minA, Vector2 maxA, Vector2 minB, Vector2 maxB)
+    {
+        return (minA.x < maxB.x && maxA.x > minB.x &&
+                minA.y < maxB.y && maxA.y > minB.y);
+    }
+    public static bool CircleToAABB(Vector2 circleCenter, float radius, Vector2 min, Vector2 max)
+    {
+        float closestX = Mathf.Clamp(circleCenter.x, min.x, max.x);
+        float closestY = Mathf.Clamp(circleCenter.y, min.y, max.y);
+        Vector2 closestPoint = new Vector2(closestX, closestY);
+        return (circleCenter - closestPoint).sqrMagnitude <= radius * radius;
+    }
+    public static bool CircleToCircle(Vector2 centerA, float radiusA, Vector2 centerB, float radiusB)
+    {
+        float radiusSum = radiusA + radiusB;
+        return (centerA - centerB).sqrMagnitude <= radiusSum * radiusSum;
+    }
+    public static bool CircleToOBB(Vector2 circleCenter, float radius, Transform boxTransform)
+    {
+        Vector2 localPoint = boxTransform.InverseTransformPoint(circleCenter);
+        Vector2 halfSize = boxTransform.localScale / 2;
+        float closestX = Mathf.Clamp(localPoint.x, -halfSize.x, halfSize.x);
+        float closestY = Mathf.Clamp(localPoint.y, -halfSize.y, halfSize.y);
+        Vector2 closestPoint = new Vector2(closestX, closestY);
+        return (closestPoint - localPoint).sqrMagnitude <= radius * radius;
+    }
+    public static bool OBBToAABB(Transform obb, Vector2 aabbMin, Vector2 aabbMax)
+    {
+        Vector2[] axes = new Vector2[2]
+        {
+        obb.right.normalized,
+        obb.up.normalized
+        };
 
-    //  Punto vs OBB (Separating Axis Theorem)
-    public static bool PointToOBB(Vector2 point, Vector2 boxPos, Vector2 boxSize, float angle)
-    {
-        Vector2 localPoint = Quaternion.Euler(0, 0, -angle) * (point - boxPos);
-        return Mathf.Abs(localPoint.x) <= boxSize.x / 2 && Mathf.Abs(localPoint.y) <= boxSize.y / 2;
-    }
+        Vector2 obbHalfSize = obb.localScale / 2;
 
-    //  AABB vs AABB
-    public static bool AABBToAABB(Vector2 pos1, Vector2 size1, Vector2 pos2, Vector2 size2)
-    {
-        return !(pos1.x + size1.x / 2 < pos2.x - size2.x / 2 ||
-                 pos1.x - size1.x / 2 > pos2.x + size2.x / 2 ||
-                 pos1.y + size1.y / 2 < pos2.y - size2.y / 2 ||
-                 pos1.y - size1.y / 2 > pos2.y + size2.y / 2);
-    }
+        Vector2 obbCornersWorldSpace = obb.position;
+        Vector2[] obbCorners = new Vector2[4]
+        {
+        obbCornersWorldSpace + axes[0] * obbHalfSize.x + axes[1] * obbHalfSize.y,
+        obbCornersWorldSpace - axes[0] * obbHalfSize.x + axes[1] * obbHalfSize.y,
+        obbCornersWorldSpace + axes[0] * obbHalfSize.x - axes[1] * obbHalfSize.y,
+        obbCornersWorldSpace - axes[0] * obbHalfSize.x - axes[1] * obbHalfSize.y
+        };
 
-    //  Circle vs AABB
-    public static bool CircleToAABB(Vector2 circlePos, float radius, Vector2 boxPos, Vector2 boxSize)
-    {
-        Vector2 closestPoint = new Vector2(
-            Mathf.Clamp(circlePos.x, boxPos.x - boxSize.x / 2, boxPos.x + boxSize.x / 2),
-            Mathf.Clamp(circlePos.y, boxPos.y - boxSize.y / 2, boxPos.y + boxSize.y / 2)
-        );
-        return (circlePos - closestPoint).sqrMagnitude <= radius * radius;
-    }
+        foreach (Vector2 corner in obbCorners)
+        {
+            if (PointToAABB(corner, aabbMin, aabbMax))
+                return true;
+        }
 
-    //  Circle vs Circle
-    public static bool CircleToCircle(Vector2 pos1, float radius1, Vector2 pos2, float radius2)
-    {
-        float distance = (pos1 - pos2).sqrMagnitude;
-        float radiusSum = radius1 + radius2;
-        return distance <= radiusSum * radiusSum;
+        return false;
     }
-
-    //  Circle vs OBB (Usa PointToOBB con el círculo)
-    public static bool CircleToOBB(Vector2 circlePos, float radius, Vector2 boxPos, Vector2 boxSize, float angle)
+    public static bool OBBToOBB(Transform boxA, Transform boxB)
     {
-        Vector2 closestPoint = Quaternion.Euler(0, 0, -angle) * (circlePos - boxPos);
-        closestPoint.x = Mathf.Clamp(closestPoint.x, -boxSize.x / 2, boxSize.x / 2);
-        closestPoint.y = Mathf.Clamp(closestPoint.y, -boxSize.y / 2, boxSize.y / 2);
-        return (closestPoint - circlePos).sqrMagnitude <= radius * radius;
-    }
+        Vector2[] axes = new Vector2[4]
+        {
+            boxA.right,
+            boxA.up,
+            boxB.right,
+            boxB.up
+        };        
+        return true;
+    }    
 }

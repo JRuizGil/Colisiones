@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
-
+//clase para checkear cada frame las colisiones que ocurren en toda la escena.
 public class CollisionManager : MonoBehaviour
 {
     public static CollisionManager Instance;
@@ -8,60 +8,63 @@ public class CollisionManager : MonoBehaviour
 
     void Awake()
     {
-        Instance = this;
-        // Registrar todos los objetos ya presentes en la escena usando el nuevo método
-        CustomCollider[] existingColliders = FindObjectsByType<CustomCollider>(FindObjectsSortMode.None);
-        foreach (var col in existingColliders)
-        {
-            Register(col);
-        }
+        if (Instance == null)
+            Instance = this;
+        else
+            Destroy(gameObject);
     }
-
-    public void Register(CustomCollider col)
+    // para registrar objetos de escena
+    public void RegisterCollider(CustomCollider collider)
     {
-        if (!colliders.Contains(col))
-        {
-            colliders.Add(col);
-        }
-    }
-
+        colliders.Add(collider);
+    }    
+    // recorrido de objetos y cambio de color cuando colisionan
     void Update()
     {
-        foreach (var col1 in colliders)
+        HashSet<CustomCollider> collidingObjects = new HashSet<CustomCollider>();
+
+        foreach (var colA in colliders)
         {
-            foreach (var col2 in colliders)
+            foreach (var colB in colliders)
             {
-                if (col1 == col2) continue;
-
-                bool collision = false;
-                // Combinaciones de colisión
-                if (col1.colliderType == CustomCollider.ColliderType.Circle && col2.colliderType == CustomCollider.ColliderType.AABB)
-                    collision = CollisionFunctions.CircleToAABB(col1.transform.position, col1.Radius, col2.transform.position, col2.Size);
-                if (col1.colliderType == CustomCollider.ColliderType.Circle && col2.colliderType == CustomCollider.ColliderType.Circle)
-                    collision = CollisionFunctions.CircleToCircle(col1.transform.position, col1.Radius, col2.transform.position, col2.Radius);
-                if (col1.colliderType == CustomCollider.ColliderType.AABB && col2.colliderType == CustomCollider.ColliderType.AABB)
-                    collision = CollisionFunctions.AABBToAABB(col1.transform.position, col1.Size, col2.transform.position, col2.Size);
-                if (col1.colliderType == CustomCollider.ColliderType.Circle && col2.colliderType == CustomCollider.ColliderType.OBB)
-                    collision = CollisionFunctions.CircleToOBB(col1.transform.position, col1.Radius, col2.transform.position, col2.Size, col2.transform.eulerAngles.z);
-                if (col1.colliderType == CustomCollider.ColliderType.OBB && col2.colliderType == CustomCollider.ColliderType.AABB)
-                    collision = CollisionFunctions.PointToOBB(col2.transform.position, col1.transform.position, col1.Size, col1.transform.eulerAngles.z);
-                if (col1.colliderType == CustomCollider.ColliderType.OBB && col2.colliderType == CustomCollider.ColliderType.Circle)
-                    collision = CollisionFunctions.CircleToOBB(col2.transform.position, col2.Radius, col1.transform.position, col1.Size, col1.transform.eulerAngles.z);
-                if (col1.colliderType == CustomCollider.ColliderType.OBB && col2.colliderType == CustomCollider.ColliderType.OBB)
-                    collision = CollisionFunctions.PointToOBB(col1.transform.position, col2.transform.position, col2.Size, col2.transform.eulerAngles.z) ||
-                                CollisionFunctions.PointToOBB(col2.transform.position, col1.transform.position, col1.Size, col1.transform.eulerAngles.z);
-
-                if (collision)
+                if (colA == colB) continue;
+                if (CheckCollision(colA, colB))
                 {
-                    col1.SetColor(Color.red);
-                    col2.SetColor(Color.green);
-                }
-                else if (!col1.IsDragging && !col2.IsDragging)
-                {
-                    col1.SetColor(Color.white);
-                    col2.SetColor(Color.white);
+                    colA.GetComponent<SpriteRenderer>().color = Color.red;
+                    colB.GetComponent<SpriteRenderer>().color = Color.green;
+                    collidingObjects.Add(colA);
+                    collidingObjects.Add(colB);
                 }
             }
         }
+        foreach (var col in colliders)
+        {
+            if (!collidingObjects.Contains(col))
+            {
+                col.GetComponent<SpriteRenderer>().color = Color.white;
+            }
+        }
+    }
+    //funcion que lee combinaciones de colisiones posibles sucediendo en encena
+    private bool CheckCollision(CustomCollider colA, CustomCollider colB)
+    {
+        if (colA.colliderType == CustomCollider.ColliderType.AABB && colB.colliderType == CustomCollider.ColliderType.AABB)
+            return CollisionFunctions.AABBToAABB(colA.transform.position - colA.transform.localScale / 2, colA.transform.position + colA.transform.localScale / 2, colB.transform.position - colB.transform.localScale / 2, colB.transform.position + colB.transform.localScale / 2);
+        if (colA.colliderType == CustomCollider.ColliderType.Circle && colB.colliderType == CustomCollider.ColliderType.AABB || colA.colliderType == CustomCollider.ColliderType.AABB && colB.colliderType == CustomCollider.ColliderType.Circle)
+            return CollisionFunctions.CircleToAABB(colA.transform.position, colA.transform.localScale.x / 2, colB.transform.position - colB.transform.localScale / 2, colB.transform.position + colB.transform.localScale / 2);
+        if (colA.colliderType == CustomCollider.ColliderType.Circle && colB.colliderType == CustomCollider.ColliderType.Circle)
+            return CollisionFunctions.CircleToCircle(colA.transform.position, colA.transform.localScale.x / 2, colB.transform.position, colB.transform.localScale.x / 2);
+        if (colA.colliderType == CustomCollider.ColliderType.Circle && colB.colliderType == CustomCollider.ColliderType.OBB || colA.colliderType == CustomCollider.ColliderType.OBB && colB.colliderType == CustomCollider.ColliderType.Circle)
+            return CollisionFunctions.CircleToOBB(colA.transform.position, colA.transform.localScale.x / 2, colB.transform);
+        if (colA.colliderType == CustomCollider.ColliderType.AABB && colB.colliderType == CustomCollider.ColliderType.OBB || colA.colliderType == CustomCollider.ColliderType.OBB && colB.colliderType == CustomCollider.ColliderType.AABB)
+            return CollisionFunctions.CircleToAABB(colA.transform.position, colA.transform.localScale.x / 2, colB.transform.position - colB.transform.localScale / 2, colB.transform.position + colB.transform.localScale / 2);
+        if (colA.colliderType == CustomCollider.ColliderType.OBB && colB.colliderType == CustomCollider.ColliderType.OBB)
+            return CollisionFunctions.PointToOBB(colA.transform.position, colB.transform);
+        if (colA.colliderType == CustomCollider.ColliderType.AABB && colB.colliderType == CustomCollider.ColliderType.OBB)
+            return CollisionFunctions.OBBToAABB(colB.transform, colA.transform.position - colA.transform.localScale / 2, colA.transform.position + colA.transform.localScale / 2);
+        if (colA.colliderType == CustomCollider.ColliderType.OBB && colB.colliderType == CustomCollider.ColliderType.AABB)
+            return CollisionFunctions.OBBToAABB(colA.transform, colB.transform.position - colB.transform.localScale / 2, colB.transform.position + colB.transform.localScale / 2);
+        return false;
     }
 }
+
