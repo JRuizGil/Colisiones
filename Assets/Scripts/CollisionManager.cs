@@ -5,46 +5,45 @@ public class CollisionManager : MonoBehaviour
 {
     public static CollisionManager Instance;
     private List<CustomCollider> colliders = new List<CustomCollider>();
-    public bool applyResolution = true; // Activa o desactiva la resolución de colisiones
-
-    void Awake()
-    {
-        if (Instance == null)
-            Instance = this;
-        else
-            Destroy(gameObject);
-    }
+    public bool applyResolution = true;  
+        
+    private Dictionary<CustomCollider, SpriteRenderer> spriteRenderers = new Dictionary<CustomCollider, SpriteRenderer>();
 
     public void RegisterCollider(CustomCollider collider)
     {
         colliders.Add(collider);
+        spriteRenderers[collider] = collider.GetComponent<SpriteRenderer>(); 
     }
-
     void Update()
     {
         HashSet<CustomCollider> collidingObjects = new HashSet<CustomCollider>();
 
-        foreach (var colA in colliders)
+        // recorrido de los colisionados en escena
+        for (int i = 0; i < colliders.Count; i++)
         {
-            foreach (var colB in colliders)
+            var colA = colliders[i];
+            for (int j = i + 1; j < colliders.Count; j++)
             {
-                if (colA == colB) continue;
+                var colB = colliders[j];
 
+                // comprobacion de colision
                 if (ResolveCollision(colA, colB, applyResolution))
                 {
-                    colA.GetComponent<SpriteRenderer>().color = Color.red;
-                    colB.GetComponent<SpriteRenderer>().color = Color.green;
+                    // Colores para los objetos que colisionan
+                    spriteRenderers[colA].color = Color.red;
+                    spriteRenderers[colB].color = Color.green;
+
                     collidingObjects.Add(colA);
                     collidingObjects.Add(colB);
                 }
             }
         }
-
+        // Restablecer los colores de los colisionadores que no están colisionando
         foreach (var col in colliders)
         {
             if (!collidingObjects.Contains(col))
             {
-                col.GetComponent<SpriteRenderer>().color = Color.white;
+                spriteRenderers[col].color = Color.white;
             }
         }
     }
@@ -53,6 +52,7 @@ public class CollisionManager : MonoBehaviour
         Contacto contact = new Contacto(Vector2.zero, Vector2.zero, 0);
         bool collisionDetected = false;
 
+        // Resolución de colisiones, condicionada por el booleano activable
         if (colA.colliderType == CustomCollider.ColliderType.AABB && colB.colliderType == CustomCollider.ColliderType.AABB)
         {
             collisionDetected = CollisionFunctions.AABBToAABBResolution(
@@ -71,7 +71,7 @@ public class CollisionManager : MonoBehaviour
                 colB.transform.position, new Vector2(colB.transform.localScale.x, colB.transform.localScale.x),
                 colA.transform.position, colA.transform.localScale, out contact);
 
-            contact.mDirecciónContacto = -contact.mDirecciónContacto; // Invertir dirección
+            contact.mDirecciónContacto = -contact.mDirecciónContacto;
         }
         else if (colA.colliderType == CustomCollider.ColliderType.Circle && colB.colliderType == CustomCollider.ColliderType.Circle)
         {
@@ -93,23 +93,33 @@ public class CollisionManager : MonoBehaviour
 
             contact.mDirecciónContacto = -contact.mDirecciónContacto;
         }
+        else if (colA.colliderType == CustomCollider.ColliderType.AABB && colB.colliderType == CustomCollider.ColliderType.OBB)
+        {
+            collisionDetected = CollisionFunctions.OBBToAABBResolution(
+                colB.transform, colA.transform.position, colA.transform.localScale, out contact);
+        }
+        else if (colA.colliderType == CustomCollider.ColliderType.OBB && colB.colliderType == CustomCollider.ColliderType.AABB)
+        {
+            collisionDetected = CollisionFunctions.OBBToAABBResolution(
+                colA.transform, colB.transform.position, colB.transform.localScale, out contact);
 
-        //  Corrección en la resolución de penetración
+            contact.mDirecciónContacto = -contact.mDirecciónContacto;
+        }
+        else if (colA.colliderType == CustomCollider.ColliderType.OBB && colB.colliderType == CustomCollider.ColliderType.OBB)
+        {
+            collisionDetected = CollisionFunctions.OBBToOBBResolution(colA.transform, colB.transform, out contact);
+        }
+        // Aplicar resolución si se detecta colisión
         if (collisionDetected && applyResolution)
         {
             if (contact.mMagnitudContacto > 0.0001f)
             {
                 Vector2 displacement = contact.mDirecciónContacto * contact.mMagnitudContacto;
 
-                // **Dividir el desplazamiento de manera justa**
                 colA.transform.position -= (Vector3)(displacement * 0.5f);
                 colB.transform.position += (Vector3)(displacement * 0.5f);
             }
         }
-
         return collisionDetected;
     }
-
-
-
 }

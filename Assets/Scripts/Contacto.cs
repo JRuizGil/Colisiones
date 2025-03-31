@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Assertions.Must;
 
 public struct Contacto
 {
@@ -8,14 +9,9 @@ public struct Contacto
 
     public Contacto(Vector2 punto, Vector2 direccion, float magnitud)
     {
-        mPuntoContacto = punto;
-        mDirecciónContacto = direccion.normalized; // Normalizamos la dirección
-        mMagnitudContacto = magnitud;
-    }
-
-    public override string ToString()
-    {
-        return $"Punto: {mPuntoContacto}, Dirección: {mDirecciónContacto}, Magnitud: {mMagnitudContacto}";
+        this.mPuntoContacto = punto.normalized;
+        this.mDirecciónContacto = direccion.normalized; 
+        this.mMagnitudContacto = magnitud;
     }
 }
 
